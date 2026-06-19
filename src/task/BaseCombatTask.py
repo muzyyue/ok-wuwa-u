@@ -13,6 +13,7 @@ from src.char import BaseChar
 from src.char.BaseChar import SwitchPriority, dot_color  # noqa
 from src.char.CharFactory import get_char_by_pos
 from src.combat.CombatCheck import CombatCheck
+from src.combo.combo_config import ComboRotationConfig
 from src.task.BaseWWTask import isolate_white_text_to_black, binarize_for_matching
 
 logger = Logger.get_logger(__name__)
@@ -72,9 +73,11 @@ class BaseCombatTask(CombatCheck):
         self.char_texts = ['char_1_text', 'char_2_text', 'char_3_text']  # 角色文本标识符列表
         self.mouse_pos = None  # 当前鼠标位置
         self.combat_start = 0  # 战斗开始时间戳
+        self.combo_config = ComboRotationConfig(self.config)  # 连招轮换配置
 
         self.char_texts = ['char_1_text', 'char_2_text', 'char_3_text']
         self.add_text_fix({'Ｅ': 'e'})
+        # 连招轮换配置 — 负责管理角色战斗逻辑的热切换（开启/关闭连招版角色代码）
         self.use_liberation = True
 
     def add_freeze_duration(self, start, duration=-1.0, freeze_time=0.1):
@@ -222,6 +225,7 @@ class BaseCombatTask(CombatCheck):
 
         不再依赖已被移除的 go_to_tower。改用 F2 图鉴搜索"无冠者"后点"探测"，
         游戏会把地图定位到固定位置，从该位置寻找传送点回血，结果稳定可复现。
+        只点一次"探测"，等待地图打开后再操作，防止二次点击误触地图上的传送图标。
         前提：调用前已回到大世界 (副本内死亡需先退本)。
         """
         # 退本后可能仍在加载黑屏, 给足超时等待真正回到大世界 (原 go_to_tower 用 80s)
@@ -235,10 +239,16 @@ class BaseCombatTask(CombatCheck):
         self.click(0.20, 0.14, after_sleep=0.3)         # 点搜索框确保焦点
         self.send_key('enter', after_sleep=0.5)          # 回车确认搜索, 刷新结果列表
         self.click(0.13, 0.24, after_sleep=0.5)         # 选中第一条结果
-        # ② 点"探测"——打开地图并定位到无冠者位置 (点两次, 与 teleport_to_nearest_boss 一致)
+        # ② 点"探测"打开地图并定位到无冠者 (只点一次, 避免地图打开后误触传送点)
         self.click(0.89, 0.92, after_sleep=1)
-        self.click(0.89, 0.92, after_sleep=1)
-        # ③ 在已打开的地图上找最近传送点回血
+        # ③ 等待地图打开 (检测地图传送点), 若未打开则补点一次兜底
+        if not self.wait_until(lambda: self.find_best_match_in_box(
+                self.box_of_screen(0.1, 0.1, 0.9, 0.9),
+                ['map_way_point', 'map_way_point_big'], 0.6) is not None,
+                time_out=4, raise_if_not_found=False):
+            logger.warning('revive_at_tower_and_heal: map not opened, retry探测')
+            self.click(0.89, 0.92, after_sleep=1)
+        # ④ 在已打开的地图上找最近传送点回血
         self._travel_to_nearest_waypoint()
 
     def teleport_to_heal(self):
@@ -663,10 +673,16 @@ class BaseCombatTask(CombatCheck):
         return None
 
     def combat_end(self):
-        """战斗结束时调用的清理方法。"""
+        """战斗结束时调用的清理方法。
+
+        依次执行:
+          1. 通知当前角色战斗结束 (on_combat_end)
+          2. 重置连招轮换的战斗内计数器
+        """
         current_char = self.get_current_char(raise_exception=False)
         if current_char:
             self.get_current_char().on_combat_end(self.chars)
+        self.combo_config.on_combat_end()  # 连招轮换状态清理
 
     def switch_healer(self):
         if self.config.get('Switch to Healer after Combat'):
@@ -922,9 +938,11 @@ class BaseCombatTask(CombatCheck):
         cv2.circle(ring_mask, center, int(r1), 0, -1)
         masked_image = cv2.bitwise_and(masked_image, masked_image, mask=ring_mask)
 
-        # Perform closing operation (Dilation followed by Erosion)
+        # 形态学闭运算（先膨胀后腐蚀），用于连接能量环断裂区域
         raw_mask = cv2.inRange(masked_image, lower_bound, upper_bound)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        # 使用椭圆核(5×5)而非矩形核(3×3)，更贴合圆形能量环的形状特征，
+        # 减少矩形核对环外噪点的误连接，提高环完整度检测精度
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         closed_mask = cv2.morphologyEx(raw_mask, cv2.MORPH_CLOSE, kernel)
         closed_mask[center[1] - 1:center[1] + 2, center[0] + 1:] = \
             raw_mask[center[1] - 1:center[1] + 2, center[0] + 1:]
@@ -973,13 +991,12 @@ class BaseCombatTask(CombatCheck):
                 the_area = area
                 ring_count += 1
 
-        # Save or display the image with contours
-        # cv2.imwrite(fr'test\count_rings_{is_full}_{self.screen_width}_mask.png', output_image)
-        # cv2.imwrite(fr'test\count_rings_{is_full}_{self.screen_width}.png', masked_image)
+        # 如果检测到多于1个环，说明UI上有干扰或异常（正常情况应只有0或1个环）
+        # 此时直接返回(0, False)而不是尝试修正，避免错误判断协奏已满
+        # 原逻辑会设置 is_full=False, the_area=0 但继续传递 area, 容易导致误判
         if ring_count > 1:
-            is_full = False
-            the_area = 0
             self.logger.warning(f'is_con_full found multiple rings {ring_count}')
+            return 0, False
 
         return the_area, is_full
 

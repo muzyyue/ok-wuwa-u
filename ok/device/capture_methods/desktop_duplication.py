@@ -1,10 +1,7 @@
 import cv2
-import win32api
-import win32con
-
-from ok.util.window import find_display
 
 from ok.device.capture_methods.base import BaseWindowsCaptureMethod
+
 
 class DesktopDuplicationCaptureMethod(BaseWindowsCaptureMethod):
     name = "Direct3D Desktop Duplication"
@@ -20,8 +17,8 @@ class DesktopDuplicationCaptureMethod(BaseWindowsCaptureMethod):
 
     def __init__(self, hwnd_window: 'HwndWindow'):
         super().__init__(hwnd_window)
-        import d3dshot
-        self.desktop_duplication = d3dshot.create(capture_output="numpy")
+        import dxcam
+        self.desktop_duplication = dxcam.create(output_color="RGB")
 
     def do_get_frame(self):
 
@@ -29,16 +26,11 @@ class DesktopDuplicationCaptureMethod(BaseWindowsCaptureMethod):
         if hwnd == 0:
             return None
 
-        hmonitor = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
-        if not hmonitor:
-            return None
-
-        self.desktop_duplication.display = find_display(hmonitor, self.desktop_duplication.displays)
         left = self.hwnd_window.x
         top = self.hwnd_window.y
         right = left + self.hwnd_window.width
         bottom = top + self.hwnd_window.height
-        screenshot = self.desktop_duplication.screenshot((left, top, right, bottom))
+        screenshot = self.desktop_duplication.grab(region=(left, top, right, bottom))
         if screenshot is None:
             return None
         return cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)

@@ -278,6 +278,12 @@ class Aemeath(BaseChar):
                 start = time.time()
                 self.should_wait = self.should_wait_for_lib2()
                 continue
+            elif self.click_resonance(send_click=False, time_out=0.5)[0]:
+                # 基础E：非强化形态也主动释放共鸣技能
+                self.click_echo(time_out=0)
+                self.f_break()
+            elif self.click_echo(time_out=0):
+                pass
             else:
                 self.click()
             self.cycle_sleep()

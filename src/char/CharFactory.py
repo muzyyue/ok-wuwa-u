@@ -49,6 +49,10 @@ from src.char.Zani import Zani
 from src.char.Zhezhi import Zhezhi
 from src.char.CustomCharLoader import load_custom_char_class
 
+# ============================================================
+# 角色注册表 — 定义所有可用角色的类、定位、属性和协奏检索引擎。
+# 添加新角色时在此处注册，系统会自动完成创建、配置和热更新。
+# ============================================================
 _char_dict_raw = {
     Labels.char_yinlin: {'cls': Yinlin, 'char_type': CharType.SUB_DPS,
                          'ring_index': Elements.ELECTRIC},
@@ -124,6 +128,7 @@ _char_dict_raw = {
     Labels.char_rebecca: {'cls': Rebecca, 'char_type': CharType.SUB_DPS, 'ring_index': Elements.ELECTRIC},
 }
 
+# 构建最终的角色字典，处理多标签映射（如男女漂泊者共用同一类）并填充默认buff_time
 char_dict = {}
 for keys, value in _char_dict_raw.items():
     value = dict(value)
@@ -134,19 +139,22 @@ for keys, value in _char_dict_raw.items():
     else:
         char_dict[keys] = value
 
-char_names = char_dict.keys()
+char_names = char_dict.keys()  # 所有已注册的角色名称列表
 
 
 def _get_char_type(task, info):
+    """从注册信息中提取角色定位（主C/副C/奶妈），默认主输出。"""
     return info.get('char_type', CharType.MAIN_DPS)
 
 
 def _get_buff_time(task, info):
+    """从注册信息中提取延奏buff持续时间，未指定则按定位取默认值。"""
     char_type = _get_char_type(task, info)
     return info.get('buff_time', get_default_buff_time(char_type))
 
 
 def _apply_char_config(task, char, info):
+    """将注册表中的定位和buff时间配置应用到角色实例上。"""
     if char and info:
         char.set_char_type(_get_char_type(task, info))
         char.set_buff_time(_get_buff_time(task, info))
@@ -154,6 +162,23 @@ def _apply_char_config(task, char, info):
 
 
 def get_char_by_pos(task, box, index, old_char):
+    """通过图像识别定位并创建/复用角色实例。
+
+    流程:
+      1. 如果 old_char 置信度高，优先在附近查找同名角色复用实例。
+      2. 若类型因 CustomCharLoader 热替换而变化，则创建新实例。
+      3. 否则用 find_best_match_in_box 在全角色范围内匹配。
+      4. 实在找不到时返回旧实例或兜底的 BaseChar。
+
+    Args:
+        task: BaseCombatTask 实例。
+        box: 角色头像UI区域坐标。
+        index: 队伍位置 (0/1/2)。
+        old_char: 上一帧该位置的角色对象，可能复用。
+
+    Returns:
+        BaseChar: 角色实例（已配置定位和buff时间）。
+    """
     highest_confidence = 0
     info = None
     name = "unknown"
@@ -177,15 +202,17 @@ def get_char_by_pos(task, box, index, old_char):
             cls = load_custom_char_class(info.get('cls'))
             return cls(task, index, char_name=name, confidence=char.confidence, ring_index=info.get('ring_index', -1),
                        char_type=_get_char_type(task, info), buff_time=_get_buff_time(task, info))
+    # ⚠️ 未能通过图像识别匹配到任何角色
     task.log_info(f'could not find char {index} {info} {highest_confidence}')
     if old_char:
-        return old_char
+        return old_char  # 保持上一帧的角色不变，避免空指针
     if task.debug:
         task.screenshot(f'could not find char {index}')
-    return BaseChar(task, index, char_name=name)
+    return BaseChar(task, index, char_name=name)  # 创建兜底实例
 
 
 def is_float(s):
+    """判断字符串是否可以转为浮点数（用于配置项校验）。"""
     try:
         float(s)
         return True

@@ -598,12 +598,13 @@ class BaseChar:
                     self.task.raise_not_in_combat('too long clicking a liberation')
                 self.task.next_frame()
             if clicked:
-                if self.task.wait_until(lambda: not self.task.in_team()[0], time_out=0.4,
+                if self.task.wait_until(lambda: not self.task.in_team()[0], time_out=0.5,
                                         post_action=self.click_with_interval):
                     self.task.in_liberation = True
                     self.logger.debug(f'not in_team successfully casted liberation')
                 else:
                     self.task.in_liberation = False
+                    self._liberation_available = False
                     self.logger.error(f'clicked liberation but no effect')
                     return False
             else:
@@ -953,12 +954,14 @@ class BaseChar:
         return self.task.find_one('target_box_short', threshold=0.6)
     def f_break(self, check_f_on_switch=False):
         """使用F进行击破
-           若self.check_f_on_switch为False则不在切走前自动按F,须在逻辑中手动添加。
-           另外击破动画带全局时停且目前无法识别动画,可能会出现计时问题
+            若self.check_f_on_switch为False则不在切走前按F,须在逻辑中手动添加。
+            另外击破动画带全局时停,触发后等待角色归队再继续轴的计算。
         """
         if check_f_on_switch and not self.check_f_on_switch:
             return
         self.task.f_break()
+        # 等待F击破处决动画结束（角色重现在队伍栏中）
+        self.task.wait_until(lambda: self.task.in_team()[0], time_out=3.0)
 
 
 forte_white_color = {  # 用于检测共鸣回路UI元素可用状态的白色颜色范围。
