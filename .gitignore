@@ -71,3 +71,8 @@ working_images/
 repo/
 
 assets/result.json
+
+# Agent working files
+.omo/
+start.vbs
+tmp_*.py
