@@ -1107,3 +1107,21 @@ msgstr "デイリー報酬の受取後、ウィークリーガーデンの進捗
 
 msgid "Guidebook Key"
 msgstr "ソラリスガイド"
+
+msgid "Aideqian 25s"
+msgstr ""
+
+msgid "Aideqian 25s Rotation"
+msgstr ""
+
+msgid "Execute predefined rotation sequence for Aideqian 25s combo"
+msgstr ""
+
+msgid "Character Rotation"
+msgstr ""
+
+msgid "Reset Config"
+msgstr ""
+
+msgid "{} Rotation Sequence  {}/{}"
+msgstr ""

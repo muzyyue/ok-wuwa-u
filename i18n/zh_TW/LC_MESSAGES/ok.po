@@ -1151,3 +1151,21 @@ msgstr "領取每日獎勵後檢查每週樂園進度；若尚未達到 6000 點
 
 msgid "Guidebook Key"
 msgstr "索拉指南"
+
+msgid "Aideqian 25s"
+msgstr "愛達千 25秒軸"
+
+msgid "Aideqian 25s Rotation"
+msgstr "愛達千 25秒合軸"
+
+msgid "Execute predefined rotation sequence for Aideqian 25s combo"
+msgstr "為愛達千 25秒合軸執行預定義的合軸序列"
+
+msgid "Character Rotation"
+msgstr "角色合軸"
+
+msgid "Reset Config"
+msgstr "重置配置"
+
+msgid "{} Rotation Sequence  {}/{}"
+msgstr "{} 合軸序列  {}/{}"

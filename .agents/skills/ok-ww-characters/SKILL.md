@@ -56,7 +56,8 @@ Always verify the implementation against this repo's helpers and available label
 
 - Do not add a character class without registering it in `CharFactory.py`.
 - Do not invent `Labels` feature names silently. If a new feature is required, document the intended label and tell the developer it must be added.
-- Use `self.time_elapsed_accounting_for_freeze(...)` for rotation timing when liberation or intro animation can freeze time.
+- Call `self.add_freeze_duration(start, duration)` after **any action that freezes game time** (liberation, F-break, etc.) so `time_elapsed_accounting_for_freeze` properly excludes that frozen time from cooldown/timer calculations. Follow the `click_liberation` pattern: record `start = time.time()` before the action, then after waiting for the character to return to team (`wait_until in_team`), compute `duration` and call `self.add_freeze_duration(start, duration)`.
+- Use `self.time_elapsed_accounting_for_freeze(...)` for rotation timing when liberation, F-break or intro animation can freeze time.
 - Prefer `click_resonance`, `click_liberation`, `click_echo`, `heavy_attack`, `continues_normal_attack`, `heavy_click_forte`, `is_forte_full`, `has_long_action`, and `f_break` over raw key calls.
 - Keep loops bounded by timeouts and call `self.task.next_frame()` or `self.sleep(...)` inside polling loops.
 - Use `Priority` overrides only when switching behavior truly depends on intro, cooldown, healer timing, or a long buff window.

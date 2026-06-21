@@ -955,13 +955,21 @@ class BaseChar:
     def f_break(self, check_f_on_switch=False):
         """使用F进行击破
             若self.check_f_on_switch为False则不在切走前按F,须在逻辑中手动添加。
-            另外击破动画带全局时停,触发后等待角色归队再继续轴的计算。
+            击破动画带全局时停,触发后等待角色归队再继续轴的计算。
+            若本次未触发击破（无F提示或冷却中）→ 不等待,立即返回。
+            记录冻结时长,使 time_elapsed_accounting_for_freeze 能扣除时停时间。
         """
         if check_f_on_switch and not self.check_f_on_switch:
             return
+        # 先检测F击破是否可用
+        break_available = self.task.can_break or self.task.check_f_break()
+        start = time.time()
         self.task.f_break()
-        # 等待F击破处决动画结束（角色重现在队伍栏中）
-        self.task.wait_until(lambda: self.task.in_team()[0], time_out=3.0)
+        if break_available:
+            # 确已触发处决 → 等角色从处决动画归队
+            self.task.wait_until(lambda: self.task.in_team()[0], time_out=3.0)
+            duration = time.time() - start
+            self.add_freeze_duration(start, duration)
 
 
 forte_white_color = {  # 用于检测共鸣回路UI元素可用状态的白色颜色范围。

@@ -84,8 +84,8 @@ class ComboRotationConfig:
         self._was_enabled = False
 
     def reset_counters(self):
-        """重置每场战斗的轮换计数器。"""
-        self.rotation_state.reset()
+        """重置每场战斗的轮换计数器（完全重置到 step 0，清空启动标记）。"""
+        self.rotation_state.reset(full_reset=True)
 
     def on_combat_end(self):
         """战斗结束时调用，用于清理连招相关的战斗状态。"""

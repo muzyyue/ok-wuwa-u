@@ -44,6 +44,7 @@ class Denia(BaseChar):
                 elif phase == 2:
                     # 阶段B: r → 切人收尾
                     self.click_liberation()
+                    self.f_break()
                     self.switch_next_char()
                     return
 
@@ -58,6 +59,7 @@ class Denia(BaseChar):
         self.click_echo(time_out=0)
         self.sleep(0.05)
         self.click_liberation()
+        self.f_break()
         self.sleep(0.05)
         self.normal_attack()
 

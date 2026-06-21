@@ -687,6 +687,9 @@ class OK:
 
     def quit(self):
         logger.info('quit app')
+        if self.device_manager and self.device_manager.capture_method:
+            logger.info('quit closing capture method')
+            self.device_manager.capture_method.close()
         self.exit_event.set()
         if self._app:
             self._app.quit()

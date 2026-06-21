@@ -1,16 +1,18 @@
 """
-爱达千 17s 合轴 — 爱弥斯/小艾 (Aemeath)
+爱达千 25s 合轴 — 爱弥斯/小艾 (Aemeath)
 
 爱弥斯在轴中的职责:
-  步骤 2:  a2                 (自动接普攻第2段)
-  步骤 4:  a3 e
-  步骤 9:  a2 a3              (机甲形态=机兵)
-  步骤 13: a4 e               (机甲形态=机兵)
-  步骤 16: 变奏入场
-  步骤 18: 变奏入场 q r a1
+   步骤 1:  a2 a3 e             (小艾: 普攻2+3段+小技能)
+   步骤 5:  a2 a3               (机兵: 普攻2+3段)
+   步骤 7:  a4 e                (机兵: 普攻4段+小技能)
+    步骤 9:  a e                 (小艾: 光翼+小技能)
+   步骤 12: a2 a3 e             (机兵: 普攻2+3段+小技能)
+    步骤 15: intro a3 a4 e       (变奏入场+普攻3+4段+小技能)
+   步骤 17: intro a3            (变奏入场+普攻3段)
+    步骤 19: a4 r a e f a3 a4 e z r (机兵终结连段)
 
-机兵 = 爱弥斯的机甲形态。步骤 8/12 切入场后自动进入机甲模式，
-支持普攻连段(a)和小技能(e)。
+机兵 = 爱弥斯的机甲形态。Aemeath 以 MECHA_PHASE 标记入场后
+自动进入机甲模式，支持普攻连段(a)、小技能(e)、重击(z)、F击破(f)。
 """
 import time
 
@@ -21,17 +23,16 @@ _CHAR_KEY = 'aemeath'
 
 
 class Aemeath(BaseChar):
-    """爱弥斯 17s/25s 合轴版 — 巨剑/三光翼双周期循环。
+    """爱弥斯 25s 合轴版 — 双形态循环。
 
     合轴要点:
-      - 17s 巨剑周期: lib1（第一次解放），暖机后快速释放
-      - 25s 三光翼周期: lib2（第二次解放），需要声骸后台蓄力
-      - 小艾形态: 普攻2段+小技能 → 可合轴 (step 2/4)
-      - 机兵形态: 普攻3段+小技能 → 激光出现切人 (step 9/13)
-      - 吃2次变奏开大: step 16(变奏)×step 18(变奏+q+r+a1)
+      - 小艾形态: 普攻2段+小技能 → 光翼触发
+      - 机兵形态: 普攻+小技能+重击+F → 终结激光切人
+      - 吃2次变奏开大后全技能爆发 (step 19: a4REFa34EZR)
+      - 循环由 StepSequence 驱动, fallback 为原版逻辑
 
     周期映射:
-      LIBERATION_COOLDOWN = 25  → 三光翼25s冷却
+      LIBERATION_COOLDOWN = 25  → 25s冷却
       INTRO_LIBERATION_DELAY = 14 → 入场后14s内可放巨剑
       LIBERATION_FORCE_DURATION = 30 → 30s后强制解锁巨剑
     """
@@ -49,61 +50,120 @@ class Aemeath(BaseChar):
         self.pending_lib2 = False
         self._lib1_cast_count = 0
         self._lib2_cast_count = 0
+        self._resonance_rate = 0  # 共鸣率累计 (光翼共奏/过载获得), 满4点解锁完整大招
         self.should_wait = False
         self.intro_time = -1
 
     def do_perform(self):
+        # 从共享的连招轮换状态获取当前该谁上场、做什么动作
         rotation = self.task.combo_config.rotation_state
         if rotation.is_done():
-            rotation.reset()  # 循环轴: 从头开始,避免进入fallback长时间站场
+            self.logger.info(f'[combo] {_CHAR_KEY} rotation done (idx={rotation.step_index}) → reset')
+            rotation.reset()
+        idx = rotation.step_index  # 日志用,放在 reset 之后
 
-        step = rotation.current_step
+        step = rotation.current_step       # step = ('aemeath', [('a',2)], 'denia', NORMAL)
         if not step:
+            self.logger.info(f'[combo] {_CHAR_KEY} step is None → switch')
             return self.switch_next_char()
-        if step[0] != _CHAR_KEY:
+        if step[0] != _CHAR_KEY:           # step 标记的角色不是'我吗 → 切给正确的角色
+            self.logger.info(f'[combo] {_CHAR_KEY} step {idx} is for {step[0]} → switch')
             return self.switch_next_char()
+
+        self.logger.info(f'[combo] {_CHAR_KEY} step {idx} enter: actions={step[1]} flag={step[3].name} next={step[2]}')
+
+        # === 入场缓冲：确保角色就位后再发动作 ===
+        # 变奏入场：等落地动画播完
+        if self.has_intro and (not step[1] or step[1][0][0] != 'intro'):
+            self.logger.info(f'[combo] {_CHAR_KEY} has_intro=True → wait intro landing')
+            self.wait_intro(0.4, click=True)
+        # 普通切人：游戏有极短的进场过渡，普攻 click 易被吞
+        elif not self.has_intro:
+            self.logger.info(f'[combo] {_CHAR_KEY} normal switch → settle 0.5s')
+            self.sleep(0.5)
 
         # === 机甲形态入口：小延迟模拟变机甲动画 ===
         if step[3] == RotationStepFlag.MECHA_PHASE:
+            self.logger.info(f'[combo] {_CHAR_KEY} mecha phase → sleep 0.15s')
             self.sleep(0.15)
 
         # === 执行本步骤动作 ===
-        for action in step[1]:
+        for action in step[1]:     # step[1] = [('a', 2)] → 依次执行每个动作
             self._exec_action(action)
 
-        rotation.advance()
-
+        rotation.advance()        # 本步骤完成,推进到下一步
+        # 读取下一步信息,判断下一位入场方式
         next_step = rotation.current_step
         next_is_intro = next_step and next_step[3] == RotationStepFlag.INTRO_SWITCH
+        next_char = next_step[0] if next_step else None
+
+        self.logger.info(f'[combo] {_CHAR_KEY} step {idx} done → advance to {rotation.step_index}, switch to {next_char} (free_intro={next_is_intro})')
 
         if next_is_intro:
-            self.switch_next_char(free_intro=True)
+            self.switch_next_char(free_intro=True)   # 下一步要求变奏入场(协奏值已满)
         else:
-            self.switch_next_char()
+            self.switch_next_char()                  # 普通切人(无入场技)
 
     def _exec_action(self, action):
         kind = action[0]
+        self.logger.info(f'[combo]  {_CHAR_KEY} exec {action}')
 
-        if kind == 'e':   # 共鸣技能
-            self.click_resonance(time_out=0.5)
+        if kind == 'e':   # 共鸣技能 → 光翼共奏(同步率≥50%)获得1点共鸣率
+            clicked, dur, animated = self.click_resonance(time_out=0.5)
+            if clicked:
+                self._resonance_rate += 1
+                self.logger.info(f'[combo]  {_CHAR_KEY} E success → 共鸣率+1 (dur={dur:.2f}s) total={self._resonance_rate}')
+            else:
+                self.logger.warning(f'[combo]  {_CHAR_KEY} E FAILED — 共鸣率未获得 ({clicked}, {dur:.2f}s, {animated})')
+
+        elif kind == 'ezr':  # 预输入连段: E → 长按重击(预输入) → R(预输入)
+            self.logger.info(f'[combo]  {_CHAR_KEY} ezr pre-input combo')
+            e_clicked, e_dur, e_anim = self.click_resonance(time_out=0.3)   # 点E
+            if e_clicked:
+                self._resonance_rate += 1                    # ezr 中的 E 也生成共鸣率
+                self.logger.info(f'[combo]  {_CHAR_KEY} ezr E success → 共鸣率+1 (dur={e_dur:.2f}s) total={self._resonance_rate}')
+            else:
+                self.logger.warning(f'[combo]  {_CHAR_KEY} ezr E FAILED — 共鸣率未获得 ({e_clicked}, {e_dur:.2f}s, {e_anim})')
+            self.task.mouse_down()                # 立即按住重击(预输入,在E动画期间)
+            self.sleep(0.6)                       # 等E打完+重击蓄力出来
+            if self._resonance_rate >= 4:          # 共鸣率满4点才释放 ezr 中的 R
+                self.click_liberation()           # 按住重击的同时按R(预输入)
+                self.logger.info(f'[combo]  {_CHAR_KEY} ezr liberation fired (共鸣率≥4)')
+            else:
+                self.logger.info(f'[combo]  {_CHAR_KEY} ezr skip liberation (共鸣率={self._resonance_rate}<4)')
+            self.sleep(0.3)                       # 等R+重击打完
+            self.task.mouse_up()                  # 松开重击
 
         elif kind == 'q':  # 声骸
             self.click_echo(time_out=0.5)
 
-        elif kind == 'r':  # 大招 (爱弥斯超时后自然释放)
-            self.click_liberation()
-
-        elif kind == 'a':  # 普攻N段
-            count = action[1]
-            for _ in range(count):
+        elif kind == 'r':  # 大招（消耗4点共鸣率, click_liberation 自带时停记录）
+            if self._resonance_rate >= 4:
+                self.click_liberation()
+                self.logger.info(f'[combo]  {_CHAR_KEY} liberation fired (共鸣率≥4)')
+            else:
+                self.logger.info(f'[combo]  {_CHAR_KEY} skip liberation — 共鸣率={self._resonance_rate}<4, normal attack instead')
                 self.normal_attack()
-                self.sleep(0.07)
+
+        elif kind == 'a':  # 第N段普攻（a2 = 一段平a打出第二下,只按1次）
+            self.logger.info(f'[combo]  {_CHAR_KEY} normal_attack BEFORE')
+            self.normal_attack()
+            self.logger.info(f'[combo]  {_CHAR_KEY} normal_attack AFTER  → sleep 0.07')
+            self.sleep(0.07)
+
+        elif kind == 'z':  # 重击 (heavy attack)
+            self.heavy_attack(duration=0.4)
+
+        elif kind == 'f':  # F键击破/下落攻击
+            self.f_break()
 
         elif kind == 'intro':  # 变奏入场 — 等待入场动画即可
             self.wait_intro(0.8)
 
     def _do_fallback(self):
         """旋转完成后的后备动作，保持原 Aemeath 的 lib1→lib2 循环。"""
+        self.logger.info(f'[combo] {_CHAR_KEY} fallback — rotation done or no matching step')
+        self._resonance_rate = 0
         self.intro_time = -1
         self.should_wait = False
         self._lib1_cast_count = 0
@@ -124,11 +184,6 @@ class Aemeath(BaseChar):
         self.switch_next_char()
 
     # === 以下方法从原始 Aemeath 直接复制，用于 fallback ===
-
-    LIBERATION_COOLDOWN = 25
-    LIBERATION_FORCE_DURATION = 30
-    LIB2_PREPARE_WINDOW = 8
-    INTRO_LIBERATION_DELAY = 14
 
     def lib2_cooldown_anchor(self):
         if self.last_liber >= 0:

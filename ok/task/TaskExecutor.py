@@ -584,6 +584,9 @@ class TaskExecutor:
         self.trigger_tasks = []
         if self.interaction:
             self.interaction.on_destroy()
+        if self.device_manager and self.device_manager.capture_method:
+            logger.info('Executor destroy closing capture method')
+            self.device_manager.capture_method.close()
 
     def wait_until_done(self):
         self.thread.join()

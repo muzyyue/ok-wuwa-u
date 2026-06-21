@@ -73,8 +73,8 @@ class ComboRotationTab(CustomTab):
         # 主卡片：开关 + 展开内容
         self._main_card = ExpandSettingCard(
             FluentIcon.CALORIES,
-            self.tr("Aideqian 17s Rotation"),
-            self.tr("Execute predefined rotation sequence for Aideqian 17s combo"),
+            self.tr("Aideqian 25s Rotation"),
+            self.tr("Execute predefined rotation sequence for Aideqian 25s combo"),
             self.view,
         )
 
@@ -85,7 +85,7 @@ class ComboRotationTab(CustomTab):
         self._main_card.addWidget(self._switch)
 
         # 角色序列直接放在主卡片的展开区域内
-        self._add_char_section(self.tr("Aideqian 17s"), AIDEQIAN_SEQUENCE, "aideqian")
+        self._add_char_section(self.tr("Aideqian 25s"), AIDEQIAN_SEQUENCE, "aideqian")
 
         self._main_card.viewLayout.addStretch(1)
 

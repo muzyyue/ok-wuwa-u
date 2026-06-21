@@ -1,8 +1,8 @@
 """
-爱达千 17s轴 — 针对爱达千优化的17秒循环连招。
+爱达千 25s轴 — 针对爱达千优化的25秒循环连招。
 
 特点:
-  - 固定17秒循环轴，最大化输出窗口
+  - 固定25秒循环轴，最大化输出窗口
   - 优先级：大招 → 共鸣技能 → 平A循环
   - 在循环窗口内自动切换入场/退场
   - 可通过 ComboTab 配置启停
@@ -13,8 +13,8 @@ from src.char.BaseChar import BaseChar
 
 
 class Aideqian(BaseChar):
-    """爱达千 17s轴 — 固定17秒循环连招，循环优先级: 大招 > 共鸣技能 > 平A。"""
-    ROTATION_CYCLE = 17  # 17秒循环窗口
+    """爱达千 25s轴 — 固定25秒循环连招，循环优先级: 大招 > 共鸣技能 > 平A。"""
+    ROTATION_CYCLE = 25  # 25秒循环窗口
     LIBERATION_COOLDOWN = 22
     SKILL_COOLDOWN = 8
 

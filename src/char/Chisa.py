@@ -2,6 +2,8 @@
 
 千咲可根据配置切换主输出或辅助模式，辅助模式下快速释放技能后切人。
 """
+import time
+
 from src.char.BaseChar import BaseChar, CharType, get_default_buff_time
 
 # 辅助模式每次上场最大驻场时间

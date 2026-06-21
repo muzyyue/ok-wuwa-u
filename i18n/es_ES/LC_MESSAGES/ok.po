@@ -1021,3 +1021,21 @@ msgstr "Después de reclamar las recompensas diarias, comprueba el progreso del 
 
 msgid "Guidebook Key"
 msgstr "Guía de Solaris"
+
+msgid "Aideqian 25s"
+msgstr ""
+
+msgid "Aideqian 25s Rotation"
+msgstr ""
+
+msgid "Execute predefined rotation sequence for Aideqian 25s combo"
+msgstr ""
+
+msgid "Character Rotation"
+msgstr ""
+
+msgid "Reset Config"
+msgstr ""
+
+msgid "{} Rotation Sequence  {}/{}"
+msgstr ""
