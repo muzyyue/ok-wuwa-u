@@ -83,8 +83,8 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
         self.openF2Book('gray_book_quest')
         self.sleep(1)
         self.click(0.343, 0.129, after_sleep=1)
+        self.click(0.927, 0.893, after_sleep=3)
         self.click(0.927, 0.893, after_sleep=2)
-        self.click(0.927, 0.893, after_sleep=1)
 
     def is_weekly_garden_completed(self):
         current = self.ocr(0.102, 0.793, 0.284, 0.956, match=self.GARDEN_TARGET_POINTS)
