@@ -85,7 +85,8 @@ class Denia(BaseChar):
             self.click_echo(time_out=0.5)
 
         elif kind == 'r':  # 大招（click_liberation 自带时停记录）
-            self.click_liberation()
+            self.click_liberation(-1,False,0.3)
+            self.sleep(0.35)  # 等大招后摇结束，否则后续 a12 会被吞
 
         elif kind == 'a':  # 第N段普攻（a2 = 一段平a打出第二下,只按1次）
             self.normal_attack()

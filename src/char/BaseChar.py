@@ -568,7 +568,7 @@ class BaseChar:
         Args:
             con_less_than (float, optional): 仅当协奏值小于此值时释放。默认为 -1 (不检查)。
             send_click (bool, optional): 进入动画后是否发送普通点击。默认为 False。
-            wait_if_cd_ready (float, optional): 如果技能冷却即将完成, 等待多少秒。默认为 0。
+            wait_if_cd_ready (float, optional): 如果技能冷却即将完成, 等待多少秒。默认为 0.1。
 
         Returns:
             bool: 如果成功释放则返回 True。

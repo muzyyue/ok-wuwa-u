@@ -108,22 +108,28 @@ class Aemeath(BaseChar):
         kind = action[0]
         self.logger.info(f'[combo]  {_CHAR_KEY} exec {action}')
 
-        if kind == 'e':   # 共鸣技能 → 光翼共奏(同步率≥50%)获得1点共鸣率
+        if kind == 'e':   # 共鸣技能 (只有强化E/光翼共奏才获得共鸣率)
+            is_enhanced = self.enhance_e_available()
             clicked, dur, animated = self.click_resonance(time_out=0.5)
-            if clicked:
+            if clicked and is_enhanced:
                 self._resonance_rate += 1
-                self.logger.info(f'[combo]  {_CHAR_KEY} E success → 共鸣率+1 (dur={dur:.2f}s) total={self._resonance_rate}')
+                self.logger.info(f'[combo]  {_CHAR_KEY} 光翼共奏 → 共鸣率+1 (dur={dur:.2f}s) total={self._resonance_rate}')
+            elif clicked:
+                self.logger.info(f'[combo]  {_CHAR_KEY} 普通E, 未获得共鸣率 (enhanced={is_enhanced})')
             else:
-                self.logger.warning(f'[combo]  {_CHAR_KEY} E FAILED — 共鸣率未获得 ({clicked}, {dur:.2f}s, {animated})')
+                self.logger.warning(f'[combo]  {_CHAR_KEY} E FAILED ({clicked}, {dur:.2f}s, {animated})')
 
         elif kind == 'ezr':  # 预输入连段: E → 长按重击(预输入) → R(预输入)
             self.logger.info(f'[combo]  {_CHAR_KEY} ezr pre-input combo')
+            ezr_enhanced = self.enhance_e_available()
             e_clicked, e_dur, e_anim = self.click_resonance(time_out=0.3)   # 点E
-            if e_clicked:
-                self._resonance_rate += 1                    # ezr 中的 E 也生成共鸣率
-                self.logger.info(f'[combo]  {_CHAR_KEY} ezr E success → 共鸣率+1 (dur={e_dur:.2f}s) total={self._resonance_rate}')
+            if e_clicked and ezr_enhanced:
+                self._resonance_rate += 1                    # 光翼共奏才加共鸣率
+                self.logger.info(f'[combo]  {_CHAR_KEY} ezr 光翼共奏 → 共鸣率+1 (dur={e_dur:.2f}s) total={self._resonance_rate}')
+            elif e_clicked:
+                self.logger.info(f'[combo]  {_CHAR_KEY} ezr 普通E, 未获得共鸣率 (enhanced={ezr_enhanced})')
             else:
-                self.logger.warning(f'[combo]  {_CHAR_KEY} ezr E FAILED — 共鸣率未获得 ({e_clicked}, {e_dur:.2f}s, {e_anim})')
+                self.logger.warning(f'[combo]  {_CHAR_KEY} ezr E FAILED ({e_clicked}, {e_dur:.2f}s, {e_anim})')
             self.task.mouse_down()                # 立即按住重击(预输入,在E动画期间)
             self.sleep(0.6)                       # 等E打完+重击蓄力出来
             if self._resonance_rate >= 4:          # 共鸣率满4点才释放 ezr 中的 R
